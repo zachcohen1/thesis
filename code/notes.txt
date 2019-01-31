@@ -1,0 +1,17 @@
+notes
+-----
+
+- fullFORCE/FORCE comparison done
+	- comparable, realistically, trying randomized trials and noise tolerance
+	- fullFORCE handles noise better
+
+- target in network works
+	- both when set to t=0 and t=end of neural resp+1
+
+- decoding w neural network works also
+	- produces better traces
+
+- questions
+	- dynamical analysis portion not really working (on force or fullForce -- probably something wrong with the code)
+	- possible idea: have some set of weights for each neuron rather than over the whole network
+	- 
