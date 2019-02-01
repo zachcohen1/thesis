@@ -1,8 +1,9 @@
 ################################################################################
 #                                                                              #
 #  Author: Zach Cohen                                                          #
-#  Title: InternallyRecurrentDriverMOandIO.py                                  #
-#  Description: A general network driver. Network architecture 3               #
+#  Title: CleanDriver_ff.py                                                    #
+#  Description: A general network driver for training and testing a            #
+#               network as defined in CleanNetwork.py                          #
 #                                                                              #
 ################################################################################
 
