@@ -1,8 +1,9 @@
 ################################################################################
 #                                                                              #
 #  Author: Zach Cohen                                                          #
-#  Title: InternallyRecurrentDriverMOandIO.py                                  #
-#  Description: A general network driver. Network architecture 3               #
+#  Title: CleanDriver_v1.py                                                    #
+#  Description: A general network driver for training and testing a            #
+#               network as defined in CleanNetwork.py                          #
 #                                                                              #
 ################################################################################
 
@@ -10,67 +11,55 @@ import numpy as np
 import math
 from scipy import sparse
 import WeightUpdate as wp
-from NoisyNetworkMOandIOC import Network 
+from NoisyNetworkMOandIOC import Network
 
 class Driver:
-    """ Network driver. Run the network and see what happens. """
-    def __init__(self, time_constant, num_neurons, p, chaotic_constant,
-                 input_num, output_num, gg_sparseness, gz_sparseness,
-                 fg_sparseness, readout_sparseness, g_gz, alpha, dt,
-                 sigma, target_in_network=False):
+    """ Network driver. Instantiates and provides functionality for
+        training and testing a network."""
+    def __init__(self, num_neurons, p, chaotic_constant,
+                 input_num, output_num, gg_sparseness, alpha, dt,
+                 sigma, nonlinearity, target_in_network=False):
+        """
+        Args:
+            num_neurons : int - number of (hidden & observed) neurons in the network
+            p : float - connectivity density used for initial network instantiation
+            chaotic_constant : float - if > 1, induces chaotic behavior in RNN when run
+                                        without training
+            input_num : int - dimension of input vector
+            output_num : int - number of observed neurons
+            alpha : float - learning rate (usually set to 1)
+            dt : float - time interval (used for evolving network)
+            sigma : float - variance of stochastic noise applied to neurons
+            nonlinearity : []float -> []float - f: R^n -> R^n, applies a non-linear
+                                                  function (r, in paper) to neuron activations
+            target_in_network : bool - is a behavioral readout node in the network?
 
+        Returns:
+            None
+        """
         print('Initializing Driver...')
 
-        # simulation time constant
-        self.time_constant = time_constant
-        # number of neurons
         self.num_neurons = num_neurons
-        # chaotic constant (>1.0)
         self.chaotic_constant = chaotic_constant
-        # number of input neurons
         self.input_num = input_num
-        # number of output nerons
         self.output_num = output_num
-        # inter-neuronal matrix sparesness
-        self.gg_sparseness = gg_sparseness
-        # output connectivity matrix sparesness
-        self.gz_sparseness = gz_sparseness
-        # input connectivity matrix sparesness
-        self.fg_sparseness = fg_sparseness
-        # w-sparseness
-        self.readout_sparseness = readout_sparseness
-        # output scaling factor
-        self.g_gz = g_gz
-        # connectivity probability used for shaping
         self.p = p
-        # for training
         self.target_in_network = target_in_network
 
         print(" > > > > > Initializing network...")
-        # instantiate a nework
-        self.network = Network(time_constant, num_neurons, p,
-                               chaotic_constant, input_num, output_num,
-                               gg_sparseness, gz_sparseness, fg_sparseness,
-                               readout_sparseness, g_gz, dt,
-                               output_num, sigma)
+        self.network = Network(num_neurons, p, chaotic_constant, input_num,
+                output_num, gg_sparseness, dt, sigma)
 
         if target_in_network:
             self.network.connectivity_matrix[0:-1,-1] = 0
         print(" > > > > > Network initialized.")
- 
+
         self.x = self.network.membrane_potential # x(0)
         # always make the appx of the cross-correlation matrix
         # dimension of the output num, not number of network neurons
         self.P = (1/alpha) * np.identity(output_num) # P(0)
         self.r = np.tanh(self.x)
         self.zs = 0.5 * np.random.randn(len(self.r))
-
-        # samples
-        #self.samps = np.array([0 for i in range(self.num_target_funcs)])
-
-        # output vectors
-        # self.ws = np.array([ np.zeros(num_neurons) for i in range(self.num_target_funcs) ])
-
 
         ## Tracking
         self.signal1 = []
@@ -80,13 +69,20 @@ class Driver:
 
         print('Driver initialized.')
 
-    # ---------------------- Train the network -------------------------- #
+    """ Train self.network using FORCE/RLS"""
     def train(self, target, vInput):
+        """
+        Args:
+            target : [][]float - target func for each neuron
+            vInput : []float - sensory evidence + context cue
+
+        Returns:
+            None
+        """
         vInput = np.array(vInput)
         for i in range(len(target[0])):
-
-            # propagate z through the network
-            self.network.prop(self.zs, self.r, vInput, target_in_network=True)
+            # propagate network
+            self.network.prop(self.r, vInput, target_in_network=True)
 
             # update r
             self.x = self.network.membrane_potential
@@ -94,27 +90,25 @@ class Driver:
 
             # update zs
             self.zs = np.dot(self.network.connectivity_matrix, self.r)
+
+            # collect samples
             samps = np.zeros(len(target))
             for w in range(len(target)):
                  samps[w] = target[w][i]
 
-            # adjust z node
-            #if self.target_in_network:
-            #    self.network.z_p(self.zs[-1], np.dot(self.network.connectivity_matrix[-1], self.r))
-
             # error slippage
             err_mat = (self.zs[:self.output_num] - samps)
 
-            # update ws, dts
+            # update J
             r_trim = self.r[:self.output_num]
-            c = 1 / (1 + np.dot(r_trim, np.dot(self.P, r_trim)))
-            hold = np.dot(np.transpose(self.P), r_trim)
-            j_delta = np.array([ c * -err_mat[i] * hold for i in range(len(r_trim)) ])
-            self.P = wp.P_t(self.P, self.r, num_output=self.output_num)
+            Pr = np.dot(self.P, r_trim)
+            c = 1 / (1 + np.dot(r_trim, Pr))
+            j_delta = c * np.outer(err_mat, Pr)
+            self.P = self.P - c * np.outer(Pr, Pr)
 
             # uddate internal connectivity matrix
             connect_matrix = self.network.connectivity_matrix
-            new_connect_matrix = connect_matrix + np.lib.pad(j_delta, 
+            new_connect_matrix = connect_matrix + np.lib.pad(j_delta,
                 (0, self.num_neurons - self.output_num), 'constant', constant_values=0)
 
             # no target feedback
@@ -122,11 +116,21 @@ class Driver:
                 new_connect_matrix[0:-1,(self.output_num-1)] = 0
             self.network.connectivity_matrix = new_connect_matrix
 
-
-    # ----------------------- Test the network -------------------------- #
+    """ Test self.network (simulate runs with various sensory evidence combinations and
+        context cues)"""
     def test(self, target, vInput, twn=False, scale=0):
+        """
+        Args:
+            target : [][]float - target func for each neuron
+            vInput : []float - sensory evidence + context cue
+            twn : bool - test with noise applied to sensory evidence
+            scale : int - variance of stochastic noise applied to sensory evidence
+
+        Returns:
+            output : [][]float - result of simulation
+        """
         vInput = np.array(vInput)
-        output = [[] for i in range(self.output_num)] 
+        output = [[] for i in range(self.output_num)]
         for i in range(len(target[0])):
 
             # remove reference problem
@@ -143,11 +147,7 @@ class Driver:
             self.signal2.append(vdInput[1])
 
             # propagate z through the network
-            self.network.prop(self.zs, self.r, vdInput, Conv=0, target_in_network=True) # remove noise
-
-            # adjust z node
-            # if self.target_in_network:
-            #     self.network.z_p(self.zs[-1], np.dot(self.ws[-1], self.r))
+            self.network.prop(self.r, vdInput, Conv=0, target_in_network=True) # remove noise
             self.x = self.network.membrane_potential
 
             if self.track_ics:
@@ -160,7 +160,6 @@ class Driver:
             self.zs = np.dot(self.network.connectivity_matrix, self.r)
             for w in range(self.output_num):
                 output[w].append(self.zs[w]) # for avg trials
-
         return output
 
 
