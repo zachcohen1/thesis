@@ -155,7 +155,7 @@ class dynamicAnalysis:
             self.context = ic[1]
             # minimum = fmin(self.q, ic[0])
             mins = minimize(self.q, ic[0], method='L-BFGS-B', jac=self.grad, hess=self.hess,
-                    options={'maxiter':10000,'disp':True, 'maxfun':1000000}, callback=self.track)
+                    options={'maxiter':20000, 'disp':None, 'maxfun':1000000, 'iprint':0}, callback=self.track)
             if not mins['success']:
                     self.trace = None
             trace = np.copy(self.trace)
