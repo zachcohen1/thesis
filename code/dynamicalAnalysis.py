@@ -154,8 +154,9 @@ class dynamicAnalysis:
             self.network.membrane_potential = ic[0]
             self.context = ic[1]
             # minimum = fmin(self.q, ic[0])
-            mins = minimize(self.q, ic[0], method='L-BFGS-B', jac=self.grad, hess=self.hess,
-                    options={'maxiter':20000, 'disp':None, 'maxfun':1000000, 'iprint':0}, callback=self.track)
+            mins = minimize(self.q, ic[0], method='L-BFGS-B',
+                    options={'maxiter':20000, 'maxfun':1000000, 'iprint':0, 'eps':0.1},
+                    callback=self.track)
             if not mins['success']:
                     self.trace = None
             trace = np.copy(self.trace)

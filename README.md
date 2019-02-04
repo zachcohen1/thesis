@@ -17,6 +17,8 @@ This contains all the raw `.py` files used in the project. All the files are com
   - `pfc.py` - Processing, smoothing neural data from Mante et. al. 2013
   - `pfcaux.py` - Auxiliary functions for `pfc.py`
 
+(See notebooks section below for workflow)
+
 ## notebooks/
 This folder contains some Jupyter Notebooks for training/testing a network and the code used to plot the figures that are in the figures folder. Reading through these notebooks can provide an understanding of the workflow for the code files above, but we provide a basic structure here.
 
