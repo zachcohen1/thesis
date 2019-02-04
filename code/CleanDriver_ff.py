@@ -11,7 +11,7 @@ import numpy as np
 import math
 from scipy import sparse
 import WeightUpdate as wp
-from NoisyNetworkMOandIOC import Network
+from CleanNetwork import Network
 
 class Driver:
     """ Network driver. Instantiates and provides functionality for
@@ -98,16 +98,15 @@ class Driver:
             self.zs = np.dot(self.network.connectivity_matrix, self.r)
             self.D_zs = np.dot(self.D_network.connectivity_matrix, self.Dr)
             err_mat = self.zs - self.D_zs - np.dot(
-                self.D_network.input[self.input_num:self.input_num+self.output_num].T,
+                self.D_network.input[:,self.input_num:self.input_num+self.output_num],
                 samps)
 
             # update ws, dts
-            #r_trim = self.r[:self.output_num]
             Pr = np.dot(self.P, self.r)
             c = 1 / (1 + np.dot(self.r, Pr))
             j_delta = c * np.outer(err_mat, Pr)
             self.P = self.P - c * np.outer(Pr, Pr)
-            del_w = c * np.outer(np.dot(self.r, self.ws) - samps, hold)
+            del_w = c * np.outer(np.dot(self.r, self.ws) - samps, Pr)
 
             # uddate internal connectivity matrix
             connect_matrix = self.network.connectivity_matrix
