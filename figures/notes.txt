@@ -1,0 +1,6 @@
+Figures for paper
+    - model schematic
+    - side-by-side traces
+    - neuron-to-neuron psth (red, blue)
+    - sigmoidal curves
+    - fixed point figs
