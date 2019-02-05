@@ -1,4 +1,4 @@
-Figures for paper
+Figures for paper (check final_figures/)
     - model schematic
     - side-by-side traces
     - neuron-to-neuron psth (red, blue)
