@@ -7,10 +7,9 @@ This contains all the raw `.py` files used in the project. All the files are com
 
 1. Experiments
   - `CleanNetwork.py` - A simple RNN network object
-  - `CleanDriver_ff.py` - Provides functionality for training a network with full-FORCE and testing it
-  - `CleanDriver_v1.py` - Provides functionality for training a network with FORCE and testing it (model2)
-  - `CleanDriver_v2.py` - Provides functionality for training a network with FORCE and testing it (model3)
-  - `CleanDriver_vpca.py` - Provides functionality for training a network with FORCE and testing it (pca_model)
+  - `CleanDriver_ff.py` - Provides functionality for training a network with full-FORCE and testing it (used for PCA experiments)
+  - `CleanDriver_v1.py` - Provides functionality for training a network with FORCE and testing it (model2, i.e. training of firing rates where readout is linear filter of firing rates of other neurons)
+  - `CleanDriver_v2.py` - Provides functionality for training a network with FORCE and testing it (model3, i.e. direct training of activations on function passed through inverse of nonlinearity)
 2. Fixed point analysis
   - `dynamicalAnalysis.py` - Provides several functions for finding fixed points within RNN state space
 3. Neural data handlers
