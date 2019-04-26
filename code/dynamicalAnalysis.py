@@ -5,163 +5,169 @@ import scipy
 from scipy.optimize import fmin, fmin_cg, minimize, check_grad
 
 class dynamicAnalysis:
-        """ Performs fixed point analysis on a given network"""
-	def __init__(self, network, f):
-            """
-            Args:
-                network : Network - an RNN on which to perform fp analysis
-                f : []float -> []float - non-linearity used in experiments
+    """ Performs fixed point analysis on a given network"""
+    def __init__(self, network, f):
+        """
+        Args:
+            network : Network - an RNN on which to perform fp analysis
+            f : []float -> []float - non-linearity used in experiments
 
-            Returns:
-                None
-            """
-	    self.network = network
-	    self.context = None
-	    self.trace = []
-	    self.f = f  # nonlinearity
+        Returns:
+            None
+        """
+        self.network = network
+        self.context = None
+        self.trace = []
+        self.f = f  # nonlinearity
 
-	""" Returns a tuple of the left and right eigenvalues of M """
-	def decompose(self, M):
-            """
-            Args:
-                M : [][]float - matrix to decompose
+    """ Returns a tuple of the left and right eigenvalues of M """
+    def decompose(self, M):
+        """
+        Args:
+            M : [][]float - matrix to decompose
 
-            Returns
-                (lv, rv, s) : tuple - left and right eigenvectors and associated
-                                      eigenvalues
-            """
-	    return sp.linalg.eig(M, right=True, left=True)
+        Returns
+            (lv, rv, s) : tuple - left and right eigenvectors and associated
+                                  eigenvalues
+        """
+        return sp.linalg.eig(M, right=True, left=True)
 
-	""" Return the Jacobian of F(x) """
-	def M(self, x):
-            """
-            Args:
-                x : []float - activations of each neuron in the network
+    """ Return the Jacobian of F(x) """
+    def M(self, x):
+        """
+        Args:
+            x : []float - activations of each neuron in the network
 
-            Returns:
-                M : [][]float - Jacobian of network at time t
-            """
-	    x = np.array(x, dtype=np.float64)
-	    n, n = np.shape(self.network.connectivity_matrix)
-	    rp = self.f(x) * (1 - self.f(x))
-	    M = np.multiply(self.network.connectivity_matrix,
-                    np.outer(np.ones(n), rp)) - np.eye(n)
-	    return M
+        Returns:
+            M : [][]float - Jacobian of network at time t
+        """
+        x = np.array(x, dtype=np.float64)
+        n, n = np.shape(self.network.connectivity_matrix)
+        rp = self.f(x) * (1 - self.f(x))
+        #rp = 1 - (self.f(x) ** 2)
+        M = np.multiply(self.network.connectivity_matrix, np.outer(np.ones(n), rp)) - np.eye(n)
+        return M
 
-        """ Return the Hessian of F(x)"""
-	def hess(self, x):
-            """
-            Args:
-                x : []float - activations of each neuron in the network
+    """ Return the Hessian of F(x)"""
+    def hess(self, x):
+        """
+        Args:
+            x : []float - activations of each neuron in the network
 
-            Returns:
-                [][]float - Hessian of the network at time t
-            """
-	    self.network.membrane_potential = x
-	    dx = self.p_prop(self.context)
-	    n, n = np.shape(self.network.connectivity_matrix)
-	    rp = self.f(x) * (1 - self.f(x))
-	    h = np.multiply(np.transpose(self.network.connectivity_matrix),
-                    np.outer(rp, np.ones(n))) - np.eye(n)
-	    d2 = np.multiply(-2 * self.f(x), rp)
-	    return np.dot(h, h) + \
-		np.diag(np.multiply(d2, np.dot(self.network.connectivity_matrix.T, dx)))
+        Returns:
+            [][]float - Hessian of the network at time t
+        """
+        self.network.membrane_potential = x
+        dx = self.p_prop(self.context)
+        n, n = np.shape(self.network.connectivity_matrix)
+        rp = self.f(x) * (1 - self.f(x))
+        #rp = 1 - (self.f(x) ** 2)
+        h = np.multiply(np.transpose(self.network.connectivity_matrix),
+                np.outer(rp, np.ones(n))) - np.eye(n)
+        d2 = np.multiply(-2 * self.f(x), rp)
+        return np.dot(h, h.T) + \
+            np.diag(np.multiply(d2, np.dot(self.network.connectivity_matrix.T, dx)))
 
-        """ Compute the gradient of F(x)"""
-	def grad(self, x):
-            """
-            Args:
-                x : []float - activations of each neuron in the network
+    """ Compute the gradient of F(x)"""
+    def grad(self, x):
+        """
+        Args:
+            x : []float - activations of each neuron in the network
 
-            Returns:
-                []float - Gradient of the network at time t
-            """
-	    self.network.membrane_potential = x
-	    dx = self.p_prop(self.context)
-	    n, n = np.shape(self.network.connectivity_matrix)
-	    rp = self.f(x) * (1 - self.f(x))
-	    h = np.multiply(self.network.connectivity_matrix.T,
-                    np.outer(rp, np.ones(n))) - np.eye(n)
-	    return np.dot(h, dx)
+        Returns:
+            []float - Gradient of the network at time t
+        """
+        self.network.membrane_potential = x
+        dx = self.p_prop(self.context)
+        n, n = np.shape(self.network.connectivity_matrix)
+        rp = self.f(x) * (1 - self.f(x))
+        #rp = 1 - self.f(x) ** 2
+        h = np.multiply(self.network.connectivity_matrix.T,
+                np.outer(rp, np.ones(n))) - np.eye(n)
+        return np.dot(h, dx)
 
-        """ Equation to minimize: q(x) = 1/2 * || F(x) ||^2"""
-	def q(self, x):
-            """
-            Args:
-                x : []float - activations of each neuron in the network
+    """ Equation to minimize: q(x) = 1/2 * || F(x) ||^2"""
+    def q(self, x):
+        """
+        Args:
+            x : []float - activations of each neuron in the network
 
-            Returns:
-                q(x) : float - q(x) at some point x
-            """
-	    self.network.membrane_potential = x
-	    dx = self.p_prop(self.context)
-	    return np.dot(dx, dx) / 2
+        Returns:
+            q(x) : float - q(x) at some point x
+        """
+        self.network.membrane_potential = x
+        dx = self.p_prop(self.context)
+        return np.dot(dx, dx) / 2
 
-        """ Make sure everything is running okay"""
-	def check_ourg(self, x):
-            """
-            Args:
-                x : []float - activations of each neuron in the network
+    """ Make sure everything is running okay"""
+    def check_ourg(self, x):
+        """
+        Args:
+            x : []float - activations of each neuron in the network
 
-            Returns:
-                None
-            """
-	    print(check_grad(self.q, self.grad, x))
+        Returns:
+            None
+        """
+        print(check_grad(self.q, self.grad, x))
 
-        """ Propagate the network forward one step in time. Notice the difference between
-            this equation and the one used in CleanNetwork.py: the one in CleanNetwork is
-            the Euler integration approximation, whereas this one is the right hand side of
-            the differential equation governing RNN dynamics"""
-	def p_prop(self, context):
-            """
-            Args:
-                context : []float - sensory evidence + context cue
+    """ Propagate the network forward one step in time. Notice the difference between
+        this equation and the one used in CleanNetwork.py: the one in CleanNetwork is
+        the Euler integration approximation, whereas this one is the right hand side of
+        the differential equation governing RNN dynamics"""
+    def p_prop(self, context):
+        """
+        Args:
+            context : []float - sensory evidence + context cue
 
-            Returns
-                []float - activations of network in next time step
-            """
-	    r = self.f(self.network.membrane_potential)
-	    return -self.network.membrane_potential + np.dot(self.network.connectivity_matrix, r) + \
-		    np.dot(context, self.network.input)
+        Returns
+            []float - activations of network in next time step
+        """
+        r = self.f(self.network.membrane_potential)
+        inp_vec = np.dot(self.network.input, context)
+        if self.network.input_num == 1:
+            inp_vec = np.squeeze(inp_vec)
+        return -self.network.membrane_potential + np.dot(self.network.connectivity_matrix, r) + \
+                inp_vec
 
-	""" Callback function for minimizer if tracking is desired"""
-	def track(self, x):
-            """
-            Args:
-                x : []float - activations of network in this time step
+    """ Callback function for minimizer if tracking is desired"""
+    def track(self, x):
+        """
+        Args:
+            x : []float - activations of network in this time step
 
-            Returns:
-                None
-            """
-	    self.trace.append(x)
+        Returns:
+            None
+        """
+        self.trace.append(x)
 
-        """ Find the minimum of q(x) using some starting point"""
-	def solve(self, ic):
-            """
-            Args:
-                ic : tuple([]float, []float) - a tuple with a starting set of neuron activations
-                                               and a context set (sensory evidence + context cue)
-                                               that the network integrates
+    """ Find the minimum of q(x) using some starting point"""
+    def solve(self, ic):
+        """
+        Args:
+            ic : tuple([]float, []float) - a tuple with a starting set of neuron activations
+                                           and a context set (sensory evidence + context cue)
+                                           that the network integrates
 
-            Returns:
-                tuple([]float, []float, min{}, [][]float) - the first tuple entry is the inital
-                                               condition, the second is the context vector, the
-                                               third is the minimizer object returned by
-                                               scipy's minimizer (with various information about
-                                               the minimization), and the final entry is the
-                                               trace of the system as it's minimized
-            """
-            self.network.membrane_potential = ic[0]
-            self.context = ic[1]
-            # minimum = fmin(self.q, ic[0])
-            mins = minimize(self.q, ic[0], method='L-BFGS-B',
-                    options={'maxiter':20000, 'maxfun':1000000, 'iprint':0, 'eps':0.1},
-                    callback=self.track)
-            if not mins['success']:
-                    self.trace = None
-            trace = np.copy(self.trace)
-            self.trace = []
-            return ic[0], ic[1], mins, trace
+        Returns:
+            tuple([]float, []float, min{}, [][]float) - the first tuple entry is the inital
+                                           condition, the second is the context vector, the
+                                           third is the minimizer object returned by
+                                           scipy's minimizer (with various information about
+                                           the minimization), and the final entry is the
+                                           trace of the system as it's minimized
+        """
+        self.network.membrane_potential = ic[0]
+        self.context = np.copy(ic[1])
+        self.context[0] = 0; self.context[1] = 0;
+        mins = minimize(self.q, ic[0], method='Newton-CG',
+                options={'maxiter':20000, 'maxfun':1000000,'xtol':1e-9,
+                    'disp':True, 'ftol':1e-12, 'adaptive':True}, # xtol = 1e-9
+                callback=self.track, jac=self.grad, hess=self.hess)
+        if not mins['success']:
+                self.trace = None
+        trace = np.copy(self.trace)
+        self.trace = []
+        return ic[0], ic[1], mins, trace
 
 # def main():
 # 	from InternallyRecurrentDriverMOandIOnCaller import Driver

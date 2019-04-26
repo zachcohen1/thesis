@@ -16,7 +16,7 @@ from scipy import stats
 class Network:
     """ A recurrent neural network class"""
     def __init__(self, num_neurons, p, chaotic_constant, input_num, output_num,
-            gg_sparseness, dt, sigma):
+            gg_sparseness, dt, sigma, sparse_inp_hidden=False):
         """
         Args:
             num_neurons : int - number of neurons in the network (hidden and observed)
@@ -40,7 +40,12 @@ class Network:
         self.connectivity_matrix = scale * chaotic_constant * \
             scipy.sparse.random(num_neurons, num_neurons,
             density=(1-gg_sparseness), data_rvs = np.random.randn).toarray()
-        self.input = np.random.randn(num_neurons, input_num)
+        if sparse_inp_hidden:
+            self.input = scipy.sparse.random(num_neurons, input_num,
+                    density=(1-gg_sparseness), data_rvs=np.random.rand).toarray()
+            self.input[:output_num,:] = 0    # project only to hidden
+        else:
+            self.input = np.random.rand(num_neurons, input_num)
         self.dt = dt
         self.sigma = sigma
 
@@ -58,11 +63,13 @@ class Network:
         """
         epsilon = np.random.randn(self.num_neurons) * Conv
         inp_vec = np.dot(self.input, context)
+        if self.input_num == 1:
+            inp_vec = np.squeeze(inp_vec)
         if target_in_network:
-            inp_vec[-1] = 0
+            inp_vec[self.output_num - 1] = 0
         self.membrane_potential = (1-self.dt) * self.membrane_potential + \
             np.matmul(self.connectivity_matrix, (r * self.dt)) + \
-            inp_vec + self.sigma * epsilon * self.dt
+            self.dt * inp_vec + self.sigma * epsilon * self.dt
 
 """Start with 100 neurons. membrane_potential[i] is the membrane potential of
    neuron i.
