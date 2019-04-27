@@ -141,7 +141,7 @@ class dynamicAnalysis:
         self.trace.append(x)
 
     """ Find the minimum of q(x) using some starting point"""
-    def solve(self, ic):
+    def solve(self, ic, stim_driven=False):
         """
         Args:
             ic : tuple([]float, []float) - a tuple with a starting set of neuron activations
@@ -158,7 +158,8 @@ class dynamicAnalysis:
         """
         self.network.membrane_potential = ic[0]
         self.context = np.copy(ic[1])
-        self.context[0] = 0; self.context[1] = 0;
+        if not stim_driven:
+            self.context[0] = 0; self.context[1] = 0;
         mins = minimize(self.q, ic[0], method='Newton-CG',
                 options={'maxiter':20000, 'maxfun':1000000,'xtol':1e-9,
                     'disp':True, 'ftol':1e-12, 'adaptive':True}, # xtol = 1e-9

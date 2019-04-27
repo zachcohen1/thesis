@@ -1,4 +1,6 @@
 import scipy.io as sio
+from scipy.ndimage import gaussian_filter1d
+from scipy.interpolate import interp1d
 from pfcaux import *
 
 # result of running the first part of the data pre-processing
@@ -13,7 +15,7 @@ def normalize(run, min_, max_):
 NUM_NEURONS = 762; NUM_CONDITIONS = 72; TRIAL_TIME_COURSE = 150;
 
 # intermediate storage of processing results
-data     = np.zeros((2, NUM_CONDITIONS, NUM_NEURONS, TRIAL_TIME_COURSE))
+data     = np.zeros((2, NUM_CONDITIONS, NUM_NEURONS, 15))
 datap    = np.zeros((2, NUM_CONDITIONS, NUM_NEURONS, TRIAL_TIME_COURSE))
 count    = np.zeros((2, NUM_CONDITIONS, NUM_NEURONS))
 corrects = np.zeros((2, NUM_CONDITIONS))
